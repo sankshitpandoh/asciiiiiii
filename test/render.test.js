@@ -72,3 +72,21 @@ test('encodeArt without colours omits palette; decodeArt validates', () => {
   assert.equal(decodeArt(enc).colors, null);
   assert.throws(() => decodeArt('{"nope":1}'));
 });
+
+test('encodeAnimation / decodeEmbed round-trip frames with a shared palette', async () => {
+  const { encodeAnimation, decodeEmbed } = await import('../src/embed.js');
+  const f1 = artFromLines(['ab', 'cd'], { colors: [['#ff0000', '#00ff00'], ['#0000ff', '#ff0000']] });
+  const f2 = artFromLines(['ba', 'dc'], { colors: [['#00ff00', '#ff0000'], ['#ff0000', '#0000ff']] });
+  const enc = encodeAnimation([f1, f2], { fps: 8 });
+  assert.equal(enc.v, 2);
+  assert.equal(enc.fps, 8);
+  assert.equal(enc.palette.length, 3, 'palette shared across frames');
+  assert.equal(enc.frames.length, 2);
+  const dec = decodeEmbed(JSON.stringify(enc));
+  assert.equal(dec.fps, 8);
+  assert.deepEqual(dec.frames.map((f) => f.lines), [f1.lines, f2.lines]);
+  assert.deepEqual(dec.frames[1].colors, f2.colors);
+  const still = decodeEmbed(encodeArt(f1));
+  assert.ok(still.art && !still.frames);
+  assert.throws(() => decodeArt(enc), /animation/);
+});

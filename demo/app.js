@@ -1,5 +1,6 @@
 import {
-  CHARSETS, DEFAULTS, imageToAscii, loadImage, toHTML, toSVG, toText, toCanvas, encodeArt,
+  CHARSETS, DEFAULTS, imageToAscii, loadImage, toHTML, toSVG, toText, toCanvas, encodeArt, encodeAnimation,
+  guessMediaKind, listPieces, CATEGORIES,
 } from '../src/index.js';
 
 const CDN_SCRIPT = 'https://cdn.jsdelivr.net/gh/sankshitpandoh/asciiiii@main/dist/ascii-art.min.js';
@@ -12,10 +13,11 @@ const ui = {
   brightness: $('brightness'), contrast: $('contrast'), gamma: $('gamma'),
   fontSize: $('font-size'), animate: $('animate'), fps: $('fps'), fg: $('fg'), bg: $('bg'), reset: $('reset'),
   preview: $('preview'), empty: $('empty'), stats: $('stats'), export: $('export'),
-  scriptSrc: $('script-src'),
+  scriptSrc: $('script-src'), thumbVideo: $('thumb-video'),
+  bake: $('bake'), bakeFrames: $('bake-frames'), bakeFps: $('bake-fps'), bakeRun: $('bake-run'), bakeInfo: $('bake-info'),
 };
 
-const state = { source: null, sourceName: 'image', art: null };
+const state = { source: null, sourceName: 'image', art: null, media: null, mediaLoaded: null, baked: null, baking: 0 };
 
 // ───────────────────────── options ─────────────────────────
 function readOptions() {
@@ -58,12 +60,31 @@ let pending = 0;
 async function convert() {
   syncOutputs();
   applyLook();
-  if (!state.source) return;
+  if (!state.source && !state.media) return;
   const token = ++pending;
   try {
-    const art = await imageToAscii(state.source, readOptions());
+    const opts = readOptions();
+    if (state.media) {
+      // Video / GIF: the element converts frames live from attributes, so only (re)open the
+      // media when it actually changed; option tweaks just need a re-bake.
+      applyOptionsToPreview(opts);
+      if (state.mediaLoaded !== state.media || ui.preview.mode !== 'media') {
+        await ui.preview.setMedia(state.media);
+        if (token !== pending) return;
+        state.mediaLoaded = state.media;
+      }
+      state.art = ui.preview.art;
+      ui.empty.hidden = true;
+      ui.stats.hidden = false;
+      ui.export.hidden = false;
+      updateStats(state.art);
+      await bake();
+      return;
+    }
+    const art = await imageToAscii(state.source, opts);
     if (token !== pending) return;
     state.art = art;
+    state.baked = null;
     ui.preview.setArt(art);
     ui.empty.hidden = true;
     ui.stats.hidden = false;
@@ -75,9 +96,34 @@ async function convert() {
   }
 }
 
+function applyOptionsToPreview(opts) {
+  const set = (name, on, value = '') => (on ? ui.preview.setAttribute(name, value) : ui.preview.removeAttribute(name));
+  ui.preview.setAttribute('cols', String(opts.cols));
+  set('charset', opts.charset !== 'standard', opts.charset);
+  set('color', opts.color);
+  set('invert', opts.invert);
+  set('dither', opts.dither);
+  set('brightness', opts.brightness !== 0, String(opts.brightness));
+  set('contrast', opts.contrast !== 0, String(opts.contrast));
+  set('gamma', opts.gamma !== 1, String(opts.gamma));
+  ui.preview.setAttribute('fps', ui.bakeFps.value);
+}
+
+async function bake() {
+  if (!state.media) return;
+  const token = ++state.baking;
+  ui.bakeInfo.textContent = 'baking frames…';
+  const { frames, fps } = await ui.preview.bake({ fps: Number(ui.bakeFps.value), maxFrames: Number(ui.bakeFrames.value), maxSeconds: 30 });
+  if (token !== state.baking) return;
+  state.baked = { frames, fps };
+  const bytes = new Blob([JSON.stringify(encodeAnimation(frames, { fps }))]).size;
+  ui.bakeInfo.textContent = `${frames.length} frames @ ${fps} fps · ${(bytes / 1024).toFixed(0)} kB baked`;
+  updateExports();
+}
+
 function applyLook() {
   const look = readLook();
-  ui.preview.setAttribute('animate', look.animate);
+  ui.preview.setAttribute('animate', state.media ? 'none' : look.animate);
   ui.preview.setAttribute('fps', String(look.fps));
   ui.preview.setAttribute('font-size', `${look.fontSize}px`);
   ui.preview.setAttribute('fg', look.fg);
@@ -89,7 +135,7 @@ function updateStats(art) {
   $('stat-size').textContent = `${art.cols}×${art.rows}`;
   $('stat-chars').textContent = `${(art.cols * art.rows).toLocaleString()} chars`;
   const bytes = new Blob([embedJSON(art)]).size;
-  $('stat-bytes').textContent = bytes > 1024 ? `${(bytes / 1024).toFixed(1)} kB` : `${bytes} B`;
+  $('stat-bytes').textContent = (bytes > 1024 ? `${(bytes / 1024).toFixed(1)} kB` : `${bytes} B`) + (state.media ? ' / frame' : '');
 }
 
 // ───────────────────────── exports ─────────────────────────
@@ -129,15 +175,21 @@ function updateExports() {
   const look = readLook();
   const opts = readOptions();
   const script = `<script type="module" src="${scriptURL()}"></script>`;
+  ui.bake.hidden = !state.media;
 
+  const payload = state.media && state.baked
+    ? JSON.stringify(encodeAnimation(state.baked.frames, { fps: state.baked.fps })).replace(/</g, '\\u003c')
+    : embedJSON(art);
   $('code-embed').value =
-    `${script}\n<ascii-art ${lookAttrs(look)} alt="ASCII art">\n` +
-    `  <script type="application/json">${embedJSON(art)}</script>\n</ascii-art>`;
+    `${script}\n<ascii-art ${lookAttrs(look, { includeAnimation: !state.media })} alt="ASCII art">\n` +
+    `  <script type="application/json">${payload}</script>\n</ascii-art>`;
 
   $('code-html').value = toHTML(art, { fontSize: look.fontSize, fg: look.fg, bg: look.bg });
 
+  const ext = state.media ? (guessMediaKind(state.media) === 'gif' ? 'gif' : 'mp4') : 'jpg';
+  const fpsAttr = state.media ? ` fps="${ui.bakeFps.value}"` : '';
   $('code-url').value =
-    `${script}\n<ascii-art src="https://example.com/your-image.jpg" ${optionAttrs(opts)} ${lookAttrs(look)}></ascii-art>`;
+    `${script}\n<ascii-art src="https://example.com/your-${state.media ? 'clip' : 'image'}.${ext}" ${optionAttrs(opts)}${fpsAttr} ${lookAttrs(look, { includeAnimation: !state.media })}></ascii-art>`;
 
   $('code-svg').value = toSVG(art, { fontSize: look.fontSize, fg: look.fg, bg: look.bg });
   $('code-text').value = toText(art);
@@ -146,14 +198,40 @@ function updateExports() {
 // ───────────────────────── sources ─────────────────────────
 async function setSource(source, name = 'image') {
   try {
+    state.sourceName = name.replace(/\.[^.]+$/, '') || 'image';
+    if (guessMediaKind(source) !== 'image') {
+      state.media = source;
+      state.source = null;
+      showMediaThumb(source);
+      await convert();
+      return;
+    }
+    state.media = null;
+    state.mediaLoaded = null;
+    state.baked = null;
+    ui.thumbVideo.hidden = true;
+    ui.thumbVideo.removeAttribute('src');
     const img = await loadImage(source);
     state.source = img;
-    state.sourceName = name.replace(/\.[^.]+$/, '') || 'image';
     showThumb(img);
     await convert();
   } catch (err) {
     toast(err.message || 'Could not load that image', true);
   }
+}
+
+function showMediaThumb(source) {
+  ui.thumb.hidden = true;
+  if (guessMediaKind(source) === 'gif') {
+    ui.thumb.src = source instanceof Blob ? URL.createObjectURL(source) : source;
+    ui.thumb.hidden = false;
+    ui.thumbVideo.hidden = true;
+  } else {
+    ui.thumbVideo.src = source instanceof Blob ? URL.createObjectURL(source) : source;
+    ui.thumbVideo.hidden = false;
+    ui.thumbVideo.play().catch(() => {});
+  }
+  ui.dropzone.classList.add('has-image');
 }
 
 function showThumb(img) {
@@ -194,7 +272,7 @@ for (const evt of ['dragleave', 'drop']) {
   });
 }
 ui.dropzone.addEventListener('drop', (e) => {
-  const f = [...(e.dataTransfer?.files || [])].find((x) => x.type.startsWith('image/'));
+  const f = [...(e.dataTransfer?.files || [])].find((x) => x.type.startsWith('image/') || x.type.startsWith('video/'));
   if (f) setSource(f, f.name);
   else {
     const url = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
@@ -306,8 +384,46 @@ const samples = {
   },
 };
 
+async function recordMotionSample() {
+  const c = document.createElement('canvas');
+  c.width = 320; c.height = 240;
+  const x = c.getContext('2d');
+  const stream = c.captureStream(20);
+  const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
+  if (!mime) throw new Error('This browser cannot record video; upload a clip instead.');
+  const rec = new MediaRecorder(stream, { mimeType: mime });
+  const chunks = [];
+  rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+  const done = new Promise((r) => (rec.onstop = r));
+  rec.start(100);
+  const t0 = performance.now();
+  await new Promise((resolve) => {
+    const draw = () => {
+      const t = (performance.now() - t0) / 1000;
+      x.fillStyle = '#000'; x.fillRect(0, 0, 320, 240);
+      for (let k = 0; k < 3; k++) {
+        const g = x.createRadialGradient(0, 0, 5, 0, 0, 60);
+        g.addColorStop(0, ['#ffd27a', '#7ee787', '#58a6ff'][k]); g.addColorStop(1, 'transparent');
+        x.save(); x.translate(160 + Math.cos(t * 1.5 + k * 2.1) * 90, 120 + Math.sin(t * 2.2 + k * 2.1) * 60); x.fillStyle = g; x.fillRect(-60, -60, 120, 120); x.restore();
+      }
+      x.fillStyle = '#fff'; x.font = 'bold 48px sans-serif'; x.textAlign = 'center'; x.fillText('ASCII', 160, 135 + Math.sin(t * 3) * 10);
+      if (t < 3) requestAnimationFrame(draw); else resolve();
+    };
+    draw();
+  });
+  rec.stop();
+  await done;
+  return new File(chunks, 'motion.webm', { type: mime.split(';')[0] });
+}
+
 for (const btn of document.querySelectorAll('[data-sample]')) {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
+    if (btn.dataset.sample === 'motion') {
+      btn.disabled = true; btn.textContent = 'Recording…';
+      try { ui.color.checked = true; await setSource(await recordMotionSample(), 'motion'); } catch (err) { toast(err.message, true); }
+      btn.disabled = false; btn.textContent = 'Motion (video)';
+      return;
+    }
     const c = document.createElement('canvas');
     c.width = 640;
     c.height = 480;
@@ -334,6 +450,9 @@ for (const el of [ui.fontSize, ui.animate, ui.fps, ui.fg, ui.bg]) {
   });
 }
 ui.scriptSrc.addEventListener('change', updateExports);
+ui.bakeRun.addEventListener('click', () => { ui.preview.setAttribute('fps', ui.bakeFps.value); bake(); });
+ui.bakeFps.addEventListener('change', () => { ui.preview.setAttribute('fps', ui.bakeFps.value); bake(); });
+ui.bakeFrames.addEventListener('change', bake);
 ui.reset.addEventListener('click', () => {
   ui.cols.value = 80; ui.charset.value = 'standard'; ui.custom.value = ' .oO@';
   ui.color.checked = false; ui.invert.checked = false; ui.dither.checked = false;
@@ -423,5 +542,51 @@ function toast(msg, isError = false) {
 ui.custom.placeholder = CHARSETS.standard;
 syncOutputs();
 applyLook();
+// ───────────────────────── gallery of built-in pieces ─────────────────────────
+function buildGallery() {
+  const grid = $('gallery-grid');
+  const filters = $('gallery-filters');
+  const all = listPieces();
+  $('piece-count').textContent = `· ${all.length}`;
+  const mk = (label, cat) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (cat === null ? ' is-active' : '');
+    b.textContent = cat ? `${label} ${listPieces(cat).length}` : `${label} ${all.length}`;
+    b.addEventListener('click', () => {
+      filters.querySelectorAll('.chip').forEach((c) => c.classList.toggle('is-active', c === b));
+      grid.querySelectorAll('.card').forEach((card) => (card.hidden = cat !== null && card.dataset.category !== cat));
+    });
+    return b;
+  };
+  filters.append(mk('All', null), ...CATEGORIES.map((c) => mk(c, c)));
+  for (const p of all) {
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.dataset.category = p.category;
+    const stage = document.createElement('div');
+    stage.className = 'card-stage';
+    const el = document.createElement('ascii-art');
+    el.setAttribute('piece', p.name);
+    el.setAttribute('alt', p.name);
+    stage.appendChild(el);
+    const meta = document.createElement('div');
+    meta.className = 'card-meta';
+    meta.innerHTML = `<span><code>${p.name}</code> <span class="cat">${p.category}${p.color ? ' · colour' : ''}</span></span>`;
+    const copy = document.createElement('button');
+    copy.className = 'btn';
+    copy.textContent = 'Copy tag';
+    copy.addEventListener('click', async () => {
+      const snippet = `<script type="module" src="${scriptURL()}"></script>\n<ascii-art piece="${p.name}"></ascii-art>`;
+      try { await navigator.clipboard.writeText(snippet); } catch { /* clipboard blocked */ }
+      copy.textContent = 'Copied ✓'; copy.classList.add('is-done');
+      setTimeout(() => { copy.textContent = 'Copy tag'; copy.classList.remove('is-done'); }, 1400);
+    });
+    meta.appendChild(copy);
+    card.append(stage, meta);
+    grid.appendChild(card);
+  }
+}
+buildGallery();
+
 // Start with a sample so the page never looks empty.
 document.querySelector('[data-sample="portrait"]').click();

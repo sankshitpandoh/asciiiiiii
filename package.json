@@ -7,7 +7,10 @@
   "module": "./src/index.js",
   "exports": {
     ".": "./src/index.js",
-    "./core": "./src/asciify.js",
+    "./core": "./src/core.js",
+    "./asciify": "./src/asciify.js",
+    "./pieces": "./src/pieces/index.js",
+    "./kit": "./src/pieces/kit.js",
     "./render": "./src/render.js",
     "./dist/*": "./dist/*"
   },

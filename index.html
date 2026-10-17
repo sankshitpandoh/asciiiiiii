@@ -14,9 +14,10 @@
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">@;.</span>
       <h1>asciiiii</h1>
-      <p class="tagline">Any photo → ASCII art → one tag on any website. 100% in your browser, nothing is uploaded.</p>
+      <p class="tagline">Any photo, GIF or video → ASCII art → one tag on any website. Plus 129 built-in animated pieces. 100% in your browser, nothing is uploaded.</p>
     </div>
     <nav class="site-nav">
+      <a href="#gallery">Gallery</a>
       <a href="#how">How to embed</a>
       <a href="https://github.com/sankshitpandoh/asciiiii" target="_blank" rel="noopener">GitHub</a>
     </nav>
@@ -26,12 +27,13 @@
     <!-- ───────────── controls ───────────── -->
     <section class="panel controls" aria-label="Image and settings">
       <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload an image">
-        <input id="file" type="file" accept="image/*" hidden />
+        <input id="file" type="file" accept="image/*,video/*,.gif" hidden />
         <div class="dropzone-inner">
-          <strong>Drop a photo here</strong>
+          <strong>Drop a photo, GIF or video here</strong>
           <span>or click to browse · paste from clipboard · <kbd>⌘V</kbd></span>
         </div>
         <img id="thumb" class="thumb" alt="" hidden />
+        <video id="thumb-video" class="thumb" muted loop playsinline hidden></video>
       </div>
 
       <div class="row url-row">
@@ -45,6 +47,7 @@
         <button class="chip" data-sample="planet">Planet</button>
         <button class="chip" data-sample="waves">Waves</button>
         <button class="chip" data-sample="logo">Logo</button>
+        <button class="chip" data-sample="motion">Motion (video)</button>
       </div>
 
       <fieldset class="group">
@@ -147,6 +150,12 @@
               <option value="site">this site</option>
             </select>
           </p>
+          <div class="bake" id="bake" hidden>
+            <label>Frames <input id="bake-frames" type="number" min="2" max="240" value="36" /></label>
+            <label>fps <input id="bake-fps" type="number" min="1" max="30" value="12" /></label>
+            <button id="bake-run" class="btn">Re-bake</button>
+            <span id="bake-info" class="muted"></span>
+          </div>
           <textarea id="code-embed" readonly spellcheck="false" rows="8"></textarea>
           <div class="actions"><button class="btn btn-primary" data-copy="code-embed">Copy snippet</button></div>
         </div>
@@ -185,6 +194,15 @@
     </section>
   </main>
 
+  <section id="gallery" class="gallery">
+    <div class="gallery-head">
+      <h2>Built-in pieces <span id="piece-count" class="muted"></span></h2>
+      <p class="muted">Ready-made animations, like ascii.rest. Drop one in with <code>&lt;ascii-art piece="donut"&gt;</code>. Hover a card for its snippet.</p>
+      <div class="chips" id="gallery-filters"></div>
+    </div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </section>
+
   <section id="how" class="how">
     <h2>How embedding works</h2>
     <div class="how-grid">
@@ -196,8 +214,12 @@
       </article>
       <article>
         <h3>2. Drop in a tag</h3>
-<pre><code>&lt;!-- convert any image on the fly --&gt;
+<pre><code>&lt;!-- a built-in piece --&gt;
+&lt;ascii-art piece="donut"&gt;&lt;/ascii-art&gt;
+
+&lt;!-- convert an image, GIF or video on the fly --&gt;
 &lt;ascii-art src="/me.jpg" cols="90" color animate="flicker"&gt;&lt;/ascii-art&gt;
+&lt;ascii-art src="/clip.mp4" cols="90" fps="12"&gt;&lt;/ascii-art&gt;
 
 &lt;!-- or paste prebuilt art from the Embed tab --&gt;
 &lt;ascii-art animate="wave"&gt;

@@ -142,3 +142,27 @@ textarea { resize: vertical; white-space: pre; font-size: 12px; line-height: 1.4
   font-size: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.4); z-index: 10;
 }
 .toast.is-error { border-color: var(--danger); color: var(--danger); }
+
+/* bake controls */
+.bake { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; font-size: 13px; color: var(--muted); }
+.bake label { display: inline-flex; gap: 6px; align-items: center; }
+.bake input[type="number"] { width: 64px; padding: 4px 6px; font-size: 13px; }
+
+/* gallery */
+.gallery { padding: 8px clamp(16px, 4vw, 48px) 32px; }
+.gallery h2 { font-size: 22px; margin: 0 0 6px; }
+.gallery-head p { margin: 0 0 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip.is-active { border-color: var(--accent); color: var(--accent); }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.card {
+  position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px; display: grid; gap: 8px; min-width: 0; overflow: hidden;
+}
+.card:hover { border-color: var(--accent); }
+.card-stage { display: grid; place-items: center; min-height: 150px; max-height: 190px; overflow: hidden; border-radius: 8px; background: #0d1117; }
+.card ascii-art { --ascii-padding: 6px; --ascii-font-size: 6px; max-width: 100%; }
+.card-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.card-meta code { color: var(--text); }
+.card-meta .cat { color: var(--muted); font-size: 12px; }
+.card .btn { padding: 4px 10px; font-size: 12px; }

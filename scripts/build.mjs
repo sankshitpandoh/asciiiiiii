@@ -18,7 +18,8 @@ const common = {
 
 await build({ ...common, format: 'esm', outfile: 'dist/ascii-art.min.js' });
 await build({ ...common, format: 'iife', globalName: 'asciiiii', outfile: 'dist/ascii-art.iife.js' });
+await build({ ...common, entryPoints: ['src/core.js'], format: 'esm', outfile: 'dist/ascii-art.core.min.js' });
 
-for (const f of ['dist/ascii-art.min.js', 'dist/ascii-art.iife.js']) {
+for (const f of ['dist/ascii-art.min.js', 'dist/ascii-art.iife.js', 'dist/ascii-art.core.min.js']) {
   console.log(`${f}  ${(statSync(f).size / 1024).toFixed(1)} kB`);
 }
