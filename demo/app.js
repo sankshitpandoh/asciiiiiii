@@ -117,7 +117,7 @@ async function bake() {
   if (token !== state.baking) return;
   state.baked = { frames, fps };
   const bytes = new Blob([JSON.stringify(encodeAnimation(frames, { fps }))]).size;
-  ui.bakeInfo.textContent = `${frames.length} frames @ ${fps} fps · ${(bytes / 1024).toFixed(0)} kB baked`;
+  ui.bakeInfo.textContent = `${frames.length} frames @ ${fps} fps, ${(bytes / 1024).toFixed(0)} kB baked`;
   updateExports();
 }
 
@@ -133,7 +133,7 @@ function applyLook() {
 
 function updateStats(art) {
   $('stat-size').textContent = `${art.cols}×${art.rows}`;
-  $('stat-chars').textContent = `${(art.cols * art.rows).toLocaleString()} chars`;
+  $('stat-chars').textContent = `${(art.cols * art.rows).toLocaleString()} characters`;
   const bytes = new Blob([embedJSON(art)]).size;
   $('stat-bytes').textContent = (bytes > 1024 ? `${(bytes / 1024).toFixed(1)} kB` : `${bytes} B`) + (state.media ? ' / frame' : '');
 }
@@ -458,17 +458,17 @@ ui.reset.addEventListener('click', () => {
   ui.color.checked = false; ui.invert.checked = false; ui.dither.checked = false;
   ui.brightness.value = 0; ui.contrast.value = 0; ui.gamma.value = 1;
   ui.fontSize.value = 10; ui.animate.value = 'none'; ui.fps.value = 12;
-  ui.fg.value = '#e6edf3'; ui.bg.value = '#0d1117';
+  ui.fg.value = '#e4ecdf'; ui.bg.value = '#0f1512';
   convert();
 });
 ui.invert.addEventListener('change', () => {
   // Swap the palette so a light-background rendition reads correctly in the preview.
-  if (ui.invert.checked && ui.bg.value === '#0d1117') {
-    ui.bg.value = '#ffffff';
-    ui.fg.value = '#111111';
-  } else if (!ui.invert.checked && ui.bg.value === '#ffffff') {
-    ui.bg.value = '#0d1117';
-    ui.fg.value = '#e6edf3';
+  if (ui.invert.checked && ui.bg.value === '#0f1512') {
+    ui.bg.value = '#f5f8f1';
+    ui.fg.value = '#1c261f';
+  } else if (!ui.invert.checked && ui.bg.value === '#f5f8f1') {
+    ui.bg.value = '#0f1512';
+    ui.fg.value = '#e4ecdf';
   }
   applyLook();
 });
@@ -493,7 +493,7 @@ for (const btn of document.querySelectorAll('[data-copy]')) {
       document.execCommand('copy');
     }
     const label = btn.textContent;
-    btn.textContent = 'Copied ✓';
+    btn.textContent = 'Copied';
     btn.classList.add('is-done');
     setTimeout(() => {
       btn.textContent = label;
@@ -547,7 +547,7 @@ function buildGallery() {
   const grid = $('gallery-grid');
   const filters = $('gallery-filters');
   const all = listPieces();
-  $('piece-count').textContent = `· ${all.length}`;
+  $('piece-count').textContent = `(${all.length})`;
   const mk = (label, cat) => {
     const b = document.createElement('button');
     b.className = 'chip' + (cat === null ? ' is-active' : '');
@@ -571,14 +571,14 @@ function buildGallery() {
     stage.appendChild(el);
     const meta = document.createElement('div');
     meta.className = 'card-meta';
-    meta.innerHTML = `<span><code>${p.name}</code> <span class="cat">${p.category}${p.color ? ' · colour' : ''}</span></span>`;
+    meta.innerHTML = `<span><code>${p.name}</code> <span class="cat">${p.category}${p.color ? ', colour' : ''}</span></span>`;
     const copy = document.createElement('button');
     copy.className = 'btn';
     copy.textContent = 'Copy tag';
     copy.addEventListener('click', async () => {
       const snippet = `<script type="module" src="${scriptURL()}"></script>\n<ascii-art piece="${p.name}"></ascii-art>`;
       try { await navigator.clipboard.writeText(snippet); } catch { /* clipboard blocked */ }
-      copy.textContent = 'Copied ✓'; copy.classList.add('is-done');
+      copy.textContent = 'Copied'; copy.classList.add('is-done');
       setTimeout(() => { copy.textContent = 'Copy tag'; copy.classList.remove('is-done'); }, 1400);
     });
     meta.appendChild(copy);
