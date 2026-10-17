@@ -1,0 +1,33 @@
+{
+  "name": "asciiiii",
+  "version": "0.1.0",
+  "description": "Turn any photo into ASCII art you can embed in any website with a single <ascii-art> tag.",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./core": "./src/asciify.js",
+    "./render": "./src/render.js",
+    "./dist/*": "./dist/*"
+  },
+  "files": ["src", "dist", "README.md", "LICENSE"],
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test \"test/**/*.test.js\"",
+    "build": "node scripts/build.mjs",
+    "check": "npm test && npm run build"
+  },
+  "keywords": ["ascii", "ascii-art", "image", "web-component", "embed", "custom-element"],
+  "author": "Sankshit Pandoh",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sankshitpandoh/asciiiii.git"
+  },
+  "homepage": "https://sankshitpandoh.github.io/asciiiii/",
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "engines": { "node": ">=18" }
+}
